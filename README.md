@@ -7,3 +7,6 @@ Para que o Log funcione corretamente mude para o formato ASCII conforme a imagem
 Ao entrar apenas clique em selecionar o arquivo .msl gerado.
 
 ![Formato do Log como ASCII](log-format.png)
+
+![Screenshot](speeduino-logviewer.png)
+
