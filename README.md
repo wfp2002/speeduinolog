@@ -1,2 +1,2 @@
-# speeduinolog
+# Speeduino Log
 speeduinolog
