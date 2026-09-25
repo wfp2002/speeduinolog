@@ -1,2 +1,3 @@
 # Speeduino Log
-speeduinolog
+
+![Formato do Log como ASCII](log-format.png)
