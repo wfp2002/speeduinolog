@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Speeduino Log Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        body {
+            background: #0f1115;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: #181c23;
+            border-bottom: 1px solid #333;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #161920;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        input[type=file] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+        }
+
+        .search, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        .select-all-container {
+            padding: 6px 0;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #2d333f;
+            font-weight: bold;
+        }
+
+        .select-all-container label {
+            cursor: pointer;
+            font-size: 13px;
+            color: #4a90e2;
+        }
+
+        .channel {
+            padding: 4px 0;
+        }
+
+        .channel label {
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            padding: 10px;
+            background: #11151d;
+            border-bottom: 1px solid #222;
+        }
+
+        .card {
+            background: #1b212b;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .card .name {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .card .value {
+            margin-top: 4px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #chart {
+            flex: 1;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            margin: 15px 0 10px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .stats {
+            font-size: 13px;
+        }
+
+        .stats-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #1b212b;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h2>Speeduino - Simple Log Viewer</h2>
+</header>
+
+<div class="container">
+
+    <div class="sidebar">
+
+        <input type="file" id="fileInput" accept=".txt,.log,.csv,.msl">
+
+        <div class="section-title">Eixo de Escala em Destaque</div>
+        <select id="primaryAxis" onchange="updateChart()">
+            <option value="">(Nenhum selecionado)</option>
+        </select>
+
+        <input type="text" id="searchChannels" class="search" placeholder="Filtrar canais...">
+
+        <div class="section-title">Canais</div>
+        
+        <div class="select-all-container">
+            <label>
+                <input type="checkbox" id="selectAllChannels" onchange="toggleSelectAll(this)">
+                Selecionar Todos (All)
+            </label>
+        </div>
+
+        <div id="channels"></div>
+
+        <div class="section-title">Estatísticas</div>
+        <div id="stats" class="stats"></div>
+
+    </div>
+
+    <div class="main">
+
+        <div class="dashboard">
+
+            <div class="card">
+                <div class="name">RPM</div>
+                <div class="value" id="rpmValue">-</div>
+            </div>
+
+            <div class="card">
+                <div class="name">MAP</div>
+                <div class="value" id="mapValue">-</div>
+            </div>
+
+            <div class="card">
+                <div class="name">TPS</div>
+                <div class="value" id="tpsValue">-</div>
+            </div>
+
+            <div class="card">
+                <div class="name">AFR</div>
+                <div class="value" id="afrValue">-</div>
+            </div>
+
+            <div class="card">
+                <div class="name">Bateria</div>
+                <div class="value" id="batValue">-</div>
+            </div>
+
+        </div>
+
+        <div id="chart"></div>
+
+    </div>
+
+</div>
+
+<script>
+
+let chart;
+let data = [];
+let headers = [];
+
+let selectedChannels = [
+    "RPM",
+    "MAP",
+    "TPS",
+    "AFR"
+];
+
+window.addEventListener("load", () => {
+
+    chart = echarts.init(
+        document.getElementById("chart")
+    );
+
+    document
+        .getElementById("fileInput")
+        .addEventListener("change", loadFile);
+
+    document
+        .getElementById("searchChannels")
+        .addEventListener("input", filterChannels);
+
+    window.addEventListener(
+        "resize",
+        () => chart.resize()
+    );
+
+});
+
+function loadFile(event){
+
+    const file = event.target.files[0];
+
+    if(!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e){
+
+        parseLog(e.target.result);
+
+        createChannelList();
+
+        updateScaleSelectOptions();
+
+        updateChart();
+
+        generateStats();
+
+    };
+
+    reader.readAsText(file);
+}
+
+function parseLog(text){
+
+    const lines = text.split(/\r?\n/);
+
+    const headerIndex =
+        lines.findIndex(
+            l => l.startsWith("Time\t") || l.startsWith("Time,")
+        );
+
+    if(headerIndex === -1){
+
+        alert("Cabeçalho do Speeduino não encontrado.");
+        return;
+    }
+
+    const separator = lines[headerIndex].includes("\t") ? "\t" : ",";
+
+    headers = lines[headerIndex].split(separator).map(h => h.trim());
+
+    data = [];
+
+    for(let i = headerIndex + 1; i < lines.length; i++){
+
+        const line = lines[i].trim();
+
+        if(!line) continue;
+
+        const cols = line.split(separator);
+
+        const time = parseFloat(cols[0]);
+
+        if(isNaN(time))
+            continue;
+
+        const row = {};
+
+        headers.forEach((h, index) => {
+
+            const val = cols[index];
+
+            const n = parseFloat(val);
+
+            row[h] = isNaN(n) ? val : n;
+        });
+
+        data.push(row);
+    }
+}
+
+function createChannelList(){
+
+    let html = "";
+
+    headers.forEach(h => {
+
+        if(h === "Time") return;
+
+        html += `
+        <div class="channel">
+            <label>
+                <input
+                    type="checkbox"
+                    value="${h}"
+                    ${selectedChannels.includes(h) ? "checked" : ""}
+                    onchange="channelChanged()"
+                >
+                ${h}
+            </label>
+        </div>`;
+    });
+
+    document.getElementById("channels").innerHTML = html;
+    
+    updateSelectAllState();
+}
+
+function updateScaleSelectOptions(){
+
+    const select = document.getElementById("primaryAxis");
+    const currentVal = select.value;
+
+    select.innerHTML = "";
+
+    selectedChannels.forEach(ch => {
+        const opt = document.createElement("option");
+        opt.value = ch;
+        opt.innerText = ch;
+        select.appendChild(opt);
+    });
+
+    if(selectedChannels.includes(currentVal)){
+        select.value = currentVal;
+    } else if(selectedChannels.length > 0){
+        select.value = selectedChannels[0];
+    }
+}
+
+function filterChannels(){
+
+    const txt =
+        document
+        .getElementById("searchChannels")
+        .value
+        .toLowerCase();
+
+    document
+        .querySelectorAll(".channel")
+        .forEach(el => {
+
+            el.style.display =
+                el.innerText
+                    .toLowerCase()
+                    .includes(txt)
+                    ? "block"
+                    : "none";
+        });
+}
+
+function channelChanged(){
+
+    selectedChannels =
+        [...document.querySelectorAll(
+            '#channels input:checked'
+        )]
+        .map(
+            el => el.value
+        );
+
+    updateSelectAllState();
+    updateScaleSelectOptions();
+    updateChart();
+}
+
+function toggleSelectAll(selectAllCheckbox){
+
+    const channelCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
+
+    channelCheckboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+
+    channelChanged();
+}
+
+function updateSelectAllState(){
+
+    const totalCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
+    const checkedCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]:checked');
+    const selectAll = document.getElementById('selectAllChannels');
+
+    if(totalCheckboxes.length > 0 && totalCheckboxes.length === checkedCheckboxes.length){
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+    } else if(checkedCheckboxes.length > 0){
+        selectAll.checked = false;
+        selectAll.indeterminate = true; // Estado visual "parcialmente marcado"
+    } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+    }
+}
+
+function updateChart(){
+
+    if(!data.length)
+        return;
+
+    const primaryChannel = document.getElementById("primaryAxis").value;
+
+    const series = [];
+    const yAxis = [];
+
+    selectedChannels.forEach((ch, idx) => {
+
+        const values =
+            data
+            .filter(r => !isNaN(r.Time))
+            .map(r => [
+                r.Time,
+                Number(r[ch])
+            ]);
+
+        const isPrimary = ch === primaryChannel || (!primaryChannel && idx === 0);
+
+        yAxis.push({
+            type: "value",
+            name: ch,
+            position: "left",
+            show: isPrimary,
+            scale: true,
+            axisLabel: {
+                color: "#FFF"
+            },
+            axisLine: {
+                lineStyle: {
+                    color: "#FFF"
+                }
+            },
+            splitLine: {
+                show: isPrimary,
+                lineStyle: {
+                    color: "#222"
+                }
+            }
+        });
+
+        series.push({
+            name: ch,
+            type: "line",
+            yAxisIndex: idx,
+            showSymbol: false,
+            sampling: "lttb",
+            data: values
+        });
+    });
+
+    chart.setOption({
+
+        backgroundColor: "#0f1115",
+
+        legend: {
+            textStyle: {
+                color: "#FFF"
+            }
+        },
+
+        tooltip: {
+            trigger: "axis"
+        },
+
+        xAxis: {
+            type: "value",
+            name: "Tempo (s)"
+        },
+
+        yAxis: yAxis.length ? yAxis : [{ type: "value", position: "left" }],
+
+        dataZoom: [
+            {
+                type: "inside"
+            },
+            {
+                type: "slider"
+            }
+        ],
+
+        series: series
+
+    }, true);
+}
+
+function generateStats(){
+
+    const canais = [
+        "RPM",
+        "MAP",
+        "TPS",
+        "AFR"
+    ];
+
+    let html = "";
+
+    canais.forEach(c => {
+
+        const arr =
+            data
+            .map(v => Number(v[c]))
+            .filter(v => !isNaN(v));
+
+        if(!arr.length)
+            return;
+
+        const min = Math.min(...arr);
+        const max = Math.max(...arr);
+
+        const avg =
+            arr.reduce(
+                (a,b)=>a+b,
+                0
+            ) / arr.length;
+
+        html += `
+        <div class="stats-item">
+            <b>${c}</b><br>
+            Min: ${min.toFixed(2)}<br>
+            Max: ${max.toFixed(2)}<br>
+            Média: ${avg.toFixed(2)}
+        </div>`;
+    });
+
+    document.getElementById(
+        "stats"
+    ).innerHTML = html;
+}
+
+chartMouseListener = function(event){
+
+    if(!data.length)
+        return;
+
+    if(!event.axesInfo || !event.axesInfo.length)
+        return;
+
+    const time =
+        event.axesInfo[0].value;
+
+    const row =
+        data.reduce((prev,curr)=>{
+
+            return Math.abs(curr.Time - time)
+                <
+                Math.abs(prev.Time - time)
+                ? curr
+                : prev;
+
+        });
+
+    document.getElementById("rpmValue").innerText = row.RPM ?? "-";
+    document.getElementById("mapValue").innerText = row.MAP ?? "-";
+    document.getElementById("tpsValue").innerText = row.TPS ?? "-";
+    document.getElementById("afrValue").innerText = row.AFR ?? "-";
+
+    document.getElementById("batValue").innerText =
+        row["Battery V"] ??
+        row["Battery"] ??
+        row["vbat"] ??
+        "-";
+};
+
+const waitChart = setInterval(() => {
+
+    if(chart){
+
+        chart.on(
+            "updateAxisPointer",
+            chartMouseListener
+        );
+
+        clearInterval(waitChart);
+    }
+
+}, 100);
+
+</script>
+
+</body>
+</html>
