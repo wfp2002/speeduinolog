@@ -21,4 +21,4 @@ Avanco,RPM,MAP,TPS
 23,2777,16,63.5
 25,2770,16,63.5
 
-*** Importante salvar o arquivo com a extensao (CSV), ou seja, nome_qualquer.csv
+*** Importante salvar o arquivo com a extensao (csv), ou seja, nome_qualquer.csv
