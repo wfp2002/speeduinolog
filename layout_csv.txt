@@ -2,7 +2,7 @@ Layout de Arquivo CSV
 
 - A primeira linha do arquivo deve ser o cabecalho do log, com o nome de cada itemm separado por virgulas
 
-- As proximas linhas abaixo sera os dados tambem separado por virgulas, qualquer numero com casas decimais devem ser representados com o (.) ponto como separador decimal.
+- As proximas linhas abaixo serao os dados tambem separado por virgulas, qualquer numero com casas decimais devem ser representados com o (.) ponto como separador decimal.
 
 - O cabecalho (primeira linha) e os dados, nao sao fixos, podem ser o que o usuario necessitar, desde que a quantidade de colunas do cabecalho seja a mesma dos dados.
 
@@ -20,3 +20,5 @@ Avanco,RPM,MAP,TPS
 25,2771,16,63.5
 23,2777,16,63.5
 25,2770,16,63.5
+
+*** Importante salvar o arquivo com a extensao (CSV), ou seja, nome_qualquer.csv
