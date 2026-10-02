@@ -143,6 +143,11 @@
         .stats-item-general {
             border-left: 3px solid #4a90e2;
         }
+        a {
+            text-decoration: none;
+            color: #4a90e2;
+        }
+
     </style>
 </head>
 
@@ -157,6 +162,8 @@
         <div class="sidebar">
 
             <input type="file" id="fileInput" accept=".txt,.log,.csv,.msl">
+            <div style="font-size: 12px">Arquivo .mls TunerStudio</div>
+            <div style="font-size: 12px">Arquivo .csv Proprietário <a href="https://raw.githubusercontent.com/wfp2002/speeduinolog/refs/heads/main/layout_csv.txt" target="_blank" rel="noopener noreferrer">(Modelo - Layout)</a></div>
 
             <div class="section-title">Eixo de Escala em Destaque</div>
             <select id="primaryAxis" onchange="updateChart()">
