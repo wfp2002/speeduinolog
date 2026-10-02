@@ -10,4 +10,4 @@ Apos gerar o arquivo no tunerStudio, o mesmo sera criado na pasta DataLogs do pr
 
 ![Screenshot](speeduino-logviewer.png)
 
-Na versao 1.1, tambem pode ser aberto um arquivo de log dinamico com extensao "csv" de acordo com o que o usuario preferir. Veja os detalhes no arquivo: layout_csv.txt
+Na versao 1.1, tambem pode ser aberto um arquivo de log dinamico com extensao "csv" de acordo com o que o usuario preferir. Veja os detalhes no arquivo: layout_arquivo.txt
