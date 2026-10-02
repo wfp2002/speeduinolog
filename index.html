@@ -58,7 +58,8 @@
             margin-bottom: 15px;
         }
 
-        .search, select {
+        .search,
+        select {
             width: 100%;
             padding: 8px;
             margin-bottom: 10px;
@@ -147,193 +148,193 @@
 
 <body>
 
-<header>
-    <h2>Speeduino - Log Viewer</h2>
-</header>
+    <header>
+        <h2>Speeduino - Log Viewer</h2>
+    </header>
 
-<div class="container">
+    <div class="container">
 
-    <div class="sidebar">
+        <div class="sidebar">
 
-        <input type="file" id="fileInput" accept=".txt,.log,.csv,.msl">
+            <input type="file" id="fileInput" accept=".txt,.log,.csv,.msl">
 
-        <div class="section-title">Eixo de Escala em Destaque</div>
-        <select id="primaryAxis" onchange="updateChart()">
-            <option value="">(Nenhum selecionado)</option>
-        </select>
+            <div class="section-title">Eixo de Escala em Destaque</div>
+            <select id="primaryAxis" onchange="updateChart()">
+                <option value="">(Nenhum selecionado)</option>
+            </select>
 
-        <input type="text" id="searchChannels" class="search" placeholder="Filtrar canais...">
+            <input type="text" id="searchChannels" class="search" placeholder="Filtrar canais...">
 
-        <div class="section-title">Canais</div>
-        
-        <div class="select-all-container">
-            <label>
-                <input type="checkbox" id="selectAllChannels" onchange="toggleSelectAll(this)">
-                Selecionar Todos (All)
-            </label>
-        </div>
+            <div class="section-title">Canais</div>
 
-        <div id="channels"></div>
-
-        <div class="section-title">Estatísticas</div>
-        <div id="stats" class="stats"></div>
-
-    </div>
-
-    <div class="main">
-
-        <div class="dashboard">
-
-            <div class="card">
-                <div class="name">RPM</div>
-                <div class="value" id="rpmValue">-</div>
+            <div class="select-all-container">
+                <label>
+                    <input type="checkbox" id="selectAllChannels" onchange="toggleSelectAll(this)">
+                    Selecionar Todos (All)
+                </label>
             </div>
 
-            <div class="card">
-                <div class="name">MAP</div>
-                <div class="value" id="mapValue">-</div>
-            </div>
+            <div id="channels"></div>
 
-            <div class="card">
-                <div class="name">TPS</div>
-                <div class="value" id="tpsValue">-</div>
-            </div>
-
-            <div class="card">
-                <div class="name">AFR</div>
-                <div class="value" id="afrValue">-</div>
-            </div>
-
-            <div class="card">
-                <div class="name">Bateria</div>
-                <div class="value" id="batValue">-</div>
-            </div>
+            <div class="section-title">Estatísticas</div>
+            <div id="stats" class="stats"></div>
 
         </div>
 
-        <div id="chart"></div>
+        <div class="main">
+
+            <div class="dashboard">
+
+                <div class="card">
+                    <div class="name">RPM</div>
+                    <div class="value" id="rpmValue">-</div>
+                </div>
+
+                <div class="card">
+                    <div class="name">MAP</div>
+                    <div class="value" id="mapValue">-</div>
+                </div>
+
+                <div class="card">
+                    <div class="name">TPS</div>
+                    <div class="value" id="tpsValue">-</div>
+                </div>
+
+                <div class="card">
+                    <div class="name">AFR / Lambda</div>
+                    <div class="value" id="afrValue">-</div>
+                </div>
+
+                <div class="card">
+                    <div class="name">Bateria</div>
+                    <div class="value" id="batValue">-</div>
+                </div>
+
+            </div>
+
+            <div id="chart"></div>
+
+        </div>
 
     </div>
 
-</div>
+    <script>
 
-<script>
+        let chart;
+        let data = [];
+        let headers = [];
 
-let chart;
-let data = [];
-let headers = [];
+        let selectedChannels = [
+            "RPM",
+            "MAP",
+            "TPS",
+            "AFR"
+        ];
 
-let selectedChannels = [
-    "RPM",
-    "MAP",
-    "TPS",
-    "AFR"
-];
+        window.addEventListener("load", () => {
 
-window.addEventListener("load", () => {
+            chart = echarts.init(
+                document.getElementById("chart")
+            );
 
-    chart = echarts.init(
-        document.getElementById("chart")
-    );
+            document
+                .getElementById("fileInput")
+                .addEventListener("change", loadFile);
 
-    document
-        .getElementById("fileInput")
-        .addEventListener("change", loadFile);
+            document
+                .getElementById("searchChannels")
+                .addEventListener("input", filterChannels);
 
-    document
-        .getElementById("searchChannels")
-        .addEventListener("input", filterChannels);
+            window.addEventListener(
+                "resize",
+                () => chart.resize()
+            );
 
-    window.addEventListener(
-        "resize",
-        () => chart.resize()
-    );
-
-});
-
-function loadFile(event){
-
-    const file = event.target.files[0];
-
-    if(!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = function(e){
-
-        parseLog(e.target.result);
-
-        createChannelList();
-
-        updateScaleSelectOptions();
-
-        updateChart();
-
-        generateStats();
-
-    };
-
-    reader.readAsText(file);
-}
-
-function parseLog(text){
-
-    const lines = text.split(/\r?\n/);
-
-    const headerIndex =
-        lines.findIndex(
-            l => l.startsWith("Time\t") || l.startsWith("Time,")
-        );
-
-    if(headerIndex === -1){
-
-        alert("Cabeçalho do Speeduino não encontrado.");
-        return;
-    }
-
-    const separator = lines[headerIndex].includes("\t") ? "\t" : ",";
-
-    headers = lines[headerIndex].split(separator).map(h => h.trim());
-
-    data = [];
-
-    for(let i = headerIndex + 1; i < lines.length; i++){
-
-        const line = lines[i].trim();
-
-        if(!line) continue;
-
-        const cols = line.split(separator);
-
-        const time = parseFloat(cols[0]);
-
-        if(isNaN(time))
-            continue;
-
-        const row = {};
-
-        headers.forEach((h, index) => {
-
-            const val = cols[index];
-
-            const n = parseFloat(val);
-
-            row[h] = isNaN(n) ? val : n;
         });
 
-        data.push(row);
-    }
-}
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-function createChannelList(){
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                parseLog(e.target.result);
+                createChannelList();
+                updateScaleSelectOptions();
+                updateChart();
+                generateStats();
+            };
+            reader.readAsText(file);
+        }
 
-    let html = "";
+        function parseLog(text) {
+            const lines = text.split(/\r?\n/);
 
-    headers.forEach(h => {
+            const headerIndex = lines.findIndex(
+                l => l.startsWith("Time\t") || l.startsWith("Time,") || l.startsWith("Tempo_ms,") || l.startsWith("Tempo_ms\t")
+            );
 
-        if(h === "Time") return;
+            if (headerIndex === -1) {
+                alert("Cabeçalho do log não encontrado.");
+                return;
+            }
 
-        html += `
+            const separator = lines[headerIndex].includes("\t") ? "\t" : ",";
+            headers = lines[headerIndex].split(separator).map(h => h.trim());
+
+            data = [];
+            let baseTime = null; // Armazenará o tempo da primeira linha para zerar o eixo
+
+            for (let i = headerIndex + 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cols = line.split(separator);
+                let rawTime = parseFloat(cols[0]);
+
+                if (isNaN(rawTime)) continue;
+
+                const firstHeader = headers[0];
+
+                // Se for o CSV novo em milissegundos, define a base se for a primeira linha válida
+                if (firstHeader === "Tempo_ms") {
+                    if (baseTime === null) {
+                        baseTime = rawTime;
+                    }
+                    rawTime = (rawTime - baseTime) / 1000; // Zera no início e converte para segundos
+                } else if (firstHeader === "Time") {
+                    // Para arquivos .msl padrão que já vêm em segundos, também garantimos que comece em 0
+                    if (baseTime === null) {
+                        baseTime = rawTime;
+                    }
+                    rawTime = rawTime - baseTime;
+                }
+
+                const row = { Time: rawTime };
+
+                headers.forEach((h, index) => {
+                    if (h === "Time" || h === "Tempo_ms") return;
+                    const val = cols[index];
+                    const n = parseFloat(val);
+                    row[h] = isNaN(n) ? val : n;
+                });
+
+                data.push(row);
+            }
+
+            headers = headers.map(h => h === "Tempo_ms" ? "Time" : h);
+            if (!headers.includes("Time")) {
+                headers.unshift("Time");
+            }
+        }
+
+        function createChannelList() {
+            let html = "";
+
+            headers.forEach(h => {
+                if (h === "Time") return;
+
+                html += `
         <div class="channel">
             <label>
                 <input
@@ -345,309 +346,214 @@ function createChannelList(){
                 ${h}
             </label>
         </div>`;
-    });
+            });
 
-    document.getElementById("channels").innerHTML = html;
-    
-    updateSelectAllState();
-}
-
-function updateScaleSelectOptions(){
-
-    const select = document.getElementById("primaryAxis");
-    const currentVal = select.value;
-
-    select.innerHTML = "";
-
-    selectedChannels.forEach(ch => {
-        const opt = document.createElement("option");
-        opt.value = ch;
-        opt.innerText = ch;
-        select.appendChild(opt);
-    });
-
-    if(selectedChannels.includes(currentVal)){
-        select.value = currentVal;
-    } else if(selectedChannels.length > 0){
-        select.value = selectedChannels[0];
-    }
-}
-
-function filterChannels(){
-
-    const txt =
-        document
-        .getElementById("searchChannels")
-        .value
-        .toLowerCase();
-
-    document
-        .querySelectorAll(".channel")
-        .forEach(el => {
-
-            el.style.display =
-                el.innerText
-                    .toLowerCase()
-                    .includes(txt)
-                    ? "block"
-                    : "none";
-        });
-}
-
-function channelChanged(){
-
-    selectedChannels =
-        [...document.querySelectorAll(
-            '#channels input:checked'
-        )]
-        .map(
-            el => el.value
-        );
-
-    updateSelectAllState();
-    updateScaleSelectOptions();
-    updateChart();
-}
-
-function toggleSelectAll(selectAllCheckbox){
-
-    const channelCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
-
-    channelCheckboxes.forEach(cb => {
-        cb.checked = selectAllCheckbox.checked;
-    });
-
-    channelChanged();
-}
-
-function updateSelectAllState(){
-
-    const totalCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
-    const checkedCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]:checked');
-    const selectAll = document.getElementById('selectAllChannels');
-
-    if(totalCheckboxes.length > 0 && totalCheckboxes.length === checkedCheckboxes.length){
-        selectAll.checked = true;
-        selectAll.indeterminate = false;
-    } else if(checkedCheckboxes.length > 0){
-        selectAll.checked = false;
-        selectAll.indeterminate = true;
-    } else {
-        selectAll.checked = false;
-        selectAll.indeterminate = false;
-    }
-}
-
-function updateChart(){
-
-    if(!data.length)
-        return;
-
-    const primaryChannel = document.getElementById("primaryAxis").value;
-
-    const series = [];
-    const yAxis = [];
-
-    selectedChannels.forEach((ch, idx) => {
-
-        const values =
-            data
-            .filter(r => !isNaN(r.Time))
-            .map(r => [
-                r.Time,
-                Number(r[ch])
-            ]);
-
-        const isPrimary = ch === primaryChannel || (!primaryChannel && idx === 0);
-
-        yAxis.push({
-            type: "value",
-            name: ch,
-            position: "left",
-            show: isPrimary,
-            scale: true,
-            axisLabel: {
-                color: "#FFF"
-            },
-            axisLine: {
-                lineStyle: {
-                    color: "#FFF"
-                }
-            },
-            splitLine: {
-                show: isPrimary,
-                lineStyle: {
-                    color: "#222"
-                }
-            }
-        });
-
-        series.push({
-            name: ch,
-            type: "line",
-            yAxisIndex: idx,
-            showSymbol: false,
-            sampling: "lttb",
-            data: values
-        });
-    });
-
-    chart.setOption({
-
-        backgroundColor: "#0f1115",
-
-        legend: {
-            textStyle: {
-                color: "#FFF"
-            }
-        },
-
-        tooltip: {
-            trigger: "axis"
-        },
-
-        xAxis: {
-            type: "value",
-            name: "Tempo (s)"
-        },
-
-        yAxis: yAxis.length ? yAxis : [{ type: "value", position: "left" }],
-
-        dataZoom: [
-            {
-                type: "inside"
-            },
-            {
-                type: "slider"
-            }
-        ],
-
-        series: series
-
-    }, true);
-}
-
-function generateStats(){
-
-    if (!data.length) return;
-
-    let html = "";
-
-    // 1. Cálculo das Informações Gerais do Log
-    const totalPackets = data.length;
-    const times = data.map(v => Number(v.Time)).filter(v => !isNaN(v));
-    
-    let totalTimeStr = "0 s";
-    if (times.length > 1) {
-        const startTime = times[0];
-        const endTime = times[times.length - 1];
-        const durationSec = Math.max(0, endTime - startTime);
-        
-        if (durationSec >= 60) {
-            const min = Math.floor(durationSec / 60);
-            const sec = (durationSec % 60).toFixed(1);
-            totalTimeStr = `${min}m ${sec}s (${durationSec.toFixed(1)}s)`;
-        } else {
-            totalTimeStr = `${durationSec.toFixed(2)} s`;
+            document.getElementById("channels").innerHTML = html;
+            updateSelectAllState();
         }
-    }
 
-    // Bloco resumo do Log
-    html += `
+        function updateScaleSelectOptions() {
+            const select = document.getElementById("primaryAxis");
+            const currentVal = select.value;
+
+            select.innerHTML = "";
+
+            selectedChannels.forEach(ch => {
+                const opt = document.createElement("option");
+                opt.value = ch;
+                opt.innerText = ch;
+                select.appendChild(opt);
+            });
+
+            if (selectedChannels.includes(currentVal)) {
+                select.value = currentVal;
+            } else if (selectedChannels.length > 0) {
+                select.value = selectedChannels[0];
+            }
+        }
+
+        function filterChannels() {
+            const txt = document.getElementById("searchChannels").value.toLowerCase();
+
+            document.querySelectorAll(".channel").forEach(el => {
+                el.style.display = el.innerText.toLowerCase().includes(txt) ? "block" : "none";
+            });
+        }
+
+        function channelChanged() {
+            selectedChannels = [...document.querySelectorAll('#channels input:checked')].map(el => el.value);
+
+            updateSelectAllState();
+            updateScaleSelectOptions();
+            updateChart();
+        }
+
+        function toggleSelectAll(selectAllCheckbox) {
+            const channelCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
+            channelCheckboxes.forEach(cb => {
+                cb.checked = selectAllCheckbox.checked;
+            });
+            channelChanged();
+        }
+
+        function updateSelectAllState() {
+            const totalCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]');
+            const checkedCheckboxes = document.querySelectorAll('#channels input[type="checkbox"]:checked');
+            const selectAll = document.getElementById('selectAllChannels');
+
+            if (totalCheckboxes.length > 0 && totalCheckboxes.length === checkedCheckboxes.length) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            } else if (checkedCheckboxes.length > 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = true;
+            } else {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            }
+        }
+
+        function updateChart() {
+            if (!data.length) return;
+
+            const primaryChannel = document.getElementById("primaryAxis").value;
+            const series = [];
+            const yAxis = [];
+
+            selectedChannels.forEach((ch, idx) => {
+                const values = data
+                    .filter(r => !isNaN(r.Time))
+                    .map(r => [
+                        r.Time,
+                        Number(r[ch])
+                    ]);
+
+                const isPrimary = ch === primaryChannel || (!primaryChannel && idx === 0);
+
+                yAxis.push({
+                    type: "value",
+                    name: ch,
+                    position: "left",
+                    show: isPrimary,
+                    scale: true,
+                    axisLabel: { color: "#FFF" },
+                    axisLine: { lineStyle: { color: "#FFF" } },
+                    splitLine: {
+                        show: isPrimary,
+                        lineStyle: { color: "#222" }
+                    }
+                });
+
+                series.push({
+                    name: ch,
+                    type: "line",
+                    yAxisIndex: idx,
+                    showSymbol: false,
+                    sampling: "lttb",
+                    data: values
+                });
+            });
+
+            chart.setOption({
+                backgroundColor: "#0f1115",
+                legend: { textStyle: { color: "#FFF" } },
+                tooltip: { trigger: "axis" },
+                xAxis: {
+                    type: "value",
+                    name: "Tempo (s)"
+                },
+                yAxis: yAxis.length ? yAxis : [{ type: "value", position: "left" }],
+                dataZoom: [
+                    { type: "inside" },
+                    { type: "slider" }
+                ],
+                series: series
+            }, true);
+        }
+
+        function generateStats() {
+            if (!data.length) return;
+
+            let html = "";
+            const totalPackets = data.length;
+            const times = data.map(v => Number(v.Time)).filter(v => !isNaN(v));
+
+            let totalTimeStr = "0 s";
+            if (times.length > 1) {
+                const startTime = times[0];
+                const endTime = times[times.length - 1];
+                const durationSec = Math.max(0, endTime - startTime);
+
+                if (durationSec >= 60) {
+                    const min = Math.floor(durationSec / 60);
+                    const sec = (durationSec % 60).toFixed(1);
+                    totalTimeStr = `${min}m ${sec}s (${durationSec.toFixed(1)}s)`;
+                } else {
+                    totalTimeStr = `${durationSec.toFixed(2)} s`;
+                }
+            }
+
+            html += `
     <div class="stats-item stats-item-general">
         <b>Resumo do Log</b><br>
         Pacotes Lidos: <b>${totalPackets.toLocaleString('pt-BR')}</b><br>
         Duração Total: <b>${totalTimeStr}</b>
     </div>`;
 
-    // 2. Estatísticas por Canal
-    const canais = [
-        "RPM",
-        "MAP",
-        "TPS",
-        "AFR"
-    ];
+            const canais = headers.filter(h => h !== "Time");
 
-    canais.forEach(c => {
+            canais.forEach(c => {
+                const arr = data.map(v => Number(v[c])).filter(v => !isNaN(v));
+                if (!arr.length) return;
 
-        const arr =
-            data
-            .map(v => Number(v[c]))
-            .filter(v => !isNaN(v));
+                const min = Math.min(...arr);
+                const max = Math.max(...arr);
+                const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
 
-        if(!arr.length)
-            return;
-
-        const min = Math.min(...arr);
-        const max = Math.max(...arr);
-
-        const avg =
-            arr.reduce(
-                (a,b)=>a+b,
-                0
-            ) / arr.length;
-
-        html += `
+                html += `
         <div class="stats-item">
             <b>${c}</b><br>
             Min: ${min.toFixed(2)}<br>
             Max: ${max.toFixed(2)}<br>
             Média: ${avg.toFixed(2)}
         </div>`;
-    });
+            });
 
-    document.getElementById("stats").innerHTML = html;
-}
+            document.getElementById("stats").innerHTML = html;
+        }
 
-chartMouseListener = function(event){
+        let chartMouseListener = function (event) {
+            if (!data.length) return;
+            if (!event.axesInfo || !event.axesInfo.length) return;
 
-    if(!data.length)
-        return;
+            const time = event.axesInfo[0].value;
 
-    if(!event.axesInfo || !event.axesInfo.length)
-        return;
+            const row = data.reduce((prev, curr) => {
+                return Math.abs(curr.Time - time) < Math.abs(prev.Time - time) ? curr : prev;
+            });
 
-    const time =
-        event.axesInfo[0].value;
+            document.getElementById("rpmValue").innerText = row.RPM ?? "-";
+            document.getElementById("mapValue").innerText = row.MAP ?? "-";
+            document.getElementById("tpsValue").innerText = row.TPS ?? "-";
+            document.getElementById("afrValue").innerText = row.AFR ?? row.Lambda ?? "-";
 
-    const row =
-        data.reduce((prev,curr)=>{
+            document.getElementById("batValue").innerText =
+                row["Battery V"] ??
+                row["Battery"] ??
+                row["Bateria"] ??
+                row["vbat"] ??
+                "-";
+        };
 
-            return Math.abs(curr.Time - time)
-                <
-                Math.abs(prev.Time - time)
-                ? curr
-                : prev;
+        const waitChart = setInterval(() => {
+            if (chart) {
+                chart.on("updateAxisPointer", chartMouseListener);
+                clearInterval(waitChart);
+            }
+        }, 100);
 
-        });
-
-    document.getElementById("rpmValue").innerText = row.RPM ?? "-";
-    document.getElementById("mapValue").innerText = row.MAP ?? "-";
-    document.getElementById("tpsValue").innerText = row.TPS ?? "-";
-    document.getElementById("afrValue").innerText = row.AFR ?? "-";
-
-    document.getElementById("batValue").innerText =
-        row["Battery V"] ??
-        row["Battery"] ??
-        row["vbat"] ??
-        "-";
-};
-
-const waitChart = setInterval(() => {
-
-    if(chart){
-
-        chart.on(
-            "updateAxisPointer",
-            chartMouseListener
-        );
-
-        clearInterval(waitChart);
-    }
-
-}, 100);
-
-</script>
+    </script>
 
 </body>
+
 </html>
